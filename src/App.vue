@@ -7,6 +7,9 @@
       <div id="available">
         Available: {{ available(bicycles).length }}
       </div>
+      <div id="available">
+        Adopted: {{ adopted(bicycles).length }} ({{ Math.round(adopted(bicycles).length / available(bicycles).length * 100)  }}%)
+      </div>
       <div id="cities">
         <input type="radio" id="Angers" value="Angers" v-model="city">
         <label for="Angers">Angers</label>
@@ -63,13 +66,18 @@ export default {
         b => b.status === "AVAILABLE" && b.region === this.city
       );
     },
+    adopted(bikes) {
+      return bikes.filter(
+        b => b.adopted && b.region === this.city
+      );
+    },
     getContent(b) {
       return JSON.stringify(b);
     },
     getIcon(type, adopted) {
       return L.icon({
         prefix: "",
-        iconUrl: `/static/${type}${adopted ? "-adopted" : ""}.png`,
+        iconUrl: `static/${type}${adopted ? "-adopted" : ""}.png`,
         iconSize: type === "available" ? [10, 10] : [24, 36]
       });
     }
@@ -86,6 +94,9 @@ export default {
       attribution:
         '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
     };
+  },
+  computed: {
+
   },
   firebase: {
     bicycles: db.ref("/rest/bicycles")
