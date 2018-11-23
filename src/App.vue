@@ -1,14 +1,29 @@
 <template>
   <div id="app">
-    <div id="stats">
-      <div id="inUse">
-        In use: {{ inUse(bicycles).length }}
+    <div id="controls">
+      <div class="stats">
+        <span>Bikes</span>
+        <div id="inUse">
+          In use: {{ bicyclesInUse }}
+        </div>
+        <div id="available">
+          Available: {{ bicyclesAvailable }}
+        </div>
+        <div id="available">
+          Adopted: {{ bicyclesAdopted }} ({{ Math.round(bicyclesAdopted / bicyclesAvailable * 100) }}%)
+        </div>
       </div>
-      <div id="available">
-        Available: {{ available(bicycles).length }}
-      </div>
-      <div id="available">
-        Adopted: {{ adopted(bicycles).length }} ({{ Math.round(adopted(bicycles).length / available(bicycles).length * 100)  }}%)
+      <div class="stats">
+        <span>Scooters</span>
+        <div id="inUse">
+          In use: {{ scootersInUse }}
+        </div>
+        <div id="available">
+          Available: {{ scootersAvailable }}
+        </div>
+        <div id="available">
+          Adopted: {{ scootersAdopted }} ({{ Math.round(scootersAdopted / scootersAvailable * 100)  }}%)
+        </div>
       </div>
       <div id="cities">
         <input type="radio" id="Angers" value="Angers" v-model="city">
@@ -21,15 +36,27 @@
     <l-map ref="map"  :zoom="zoom" :center="center">
       <l-tile-layer :url="url" :attribution="attribution"></l-tile-layer>
 
-      <l-marker :lat-lng="toLatLng(bike)" v-for="bike in inUse(bicycles)" :key="bike.physicalId" :icon="getIcon('in-use', bike.adopted)">
+      <l-marker :lat-lng="toLatLng(vehicle)" v-for="vehicle in inUse(bicycles)" :key="vehicle.physicalId" :icon="getIcon('bike', 'in-use', vehicle.adopted)">
         <l-popup>
-          <popup-pony :data="bike"/>
+          <popup-pony :data="vehicle"/>
         </l-popup>
       </l-marker>
 
-      <l-marker :lat-lng="toLatLng(bike)" v-for="bike in available(bicycles)" :key="bike.physicalId" :icon="getIcon('available', bike.adopted)">
+      <l-marker :lat-lng="toLatLng(vehicle)" v-for="vehicle in available(bicycles)" :key="vehicle.physicalId" :icon="getIcon('bike', 'available', vehicle.adopted)">
         <l-popup>
-          <popup-pony :data="bike"/>
+          <popup-pony :data="vehicle"/>
+        </l-popup>
+      </l-marker>
+
+      <l-marker :lat-lng="toLatLng(vehicle)" v-for="vehicle in inUse(scooters)" :key="vehicle.vehicleCode" :icon="getIcon('scooter', 'in-use', vehicle.adopted)">
+        <l-popup>
+          <popup-pony :data="vehicle"/>
+        </l-popup>
+      </l-marker>
+
+      <l-marker :lat-lng="toLatLng(vehicle)" v-for="vehicle in available(scooters)" :key="vehicle.physicalId" :icon="getIcon('scooter', 'available', vehicle.adopted)">
+        <l-popup>
+          <popup-pony :data="vehicle"/>
         </l-popup>
       </l-marker>
     </l-map>
@@ -54,30 +81,31 @@ export default {
   name: "App",
   components: { LMap, LTileLayer, LMarker, LPopup, PopupPony },
   methods: {
-    toLatLng(bike) {
-      return L.latLng(bike.latitude, bike.longitude);
+    toLatLng(vehicle) {
+      return vehicle.position
+        ? L.latLng(vehicle.position.latitude, vehicle.position.longitude)
+        : L.latLng(vehicle.latitude, vehicle.longitude);
     },
-    inUse(bikes) {
-      // console.log(bikes);
-      return bikes.filter(b => b.status === "IN_USE" && b.region === this.city);
+    inUse(vehicles) {
+      return vehicles.filter(
+        b => b.status === "IN_USE" && b.region === this.city
+      );
     },
-    available(bikes) {
-      return bikes.filter(
+    available(vehicles) {
+      return vehicles.filter(
         b => b.status === "AVAILABLE" && b.region === this.city
       );
     },
-    adopted(bikes) {
-      return bikes.filter(
-        b => b.adopted && b.region === this.city
-      );
+    adopted(vehicles) {
+      return vehicles.filter(b => b.adopted && b.region === this.city);
     },
     getContent(b) {
       return JSON.stringify(b);
     },
-    getIcon(type, adopted) {
+    getIcon(type, status, adopted) {
       return L.icon({
         prefix: "",
-        iconUrl: `static/${type}${adopted ? "-adopted" : ""}.png`,
+        iconUrl: `static/${type}-${status}${adopted ? "-adopted" : ""}.png`,
         iconSize: type === "available" ? [10, 10] : [24, 36]
       });
     }
@@ -87,6 +115,7 @@ export default {
       map: null,
       city: "Angers",
       bicycles: [],
+      scooters: [],
       zoom: 13,
       center: JSON.parse(JSON.stringify(cities["Angers"])),
       url:
@@ -96,10 +125,36 @@ export default {
     };
   },
   computed: {
-
+    regions() {
+      return [
+        ...new Set([
+          ...new Set(this.bicycles.map(b => b.region)),
+          ...new Set(this.scooters.map(b => b.region))
+        ])
+      ];
+    },
+    bicyclesInUse() {
+      return this.inUse(this.bicycles).length;
+    },
+    bicyclesAvailable() {
+      return this.available(this.bicycles).length;
+    },
+    bicyclesAdopted() {
+      return this.adopted(this.bicycles).length;
+    },
+    scootersInUse() {
+      return this.inUse(this.scooters).length;
+    },
+    scootersAvailable() {
+      return this.available(this.scooters).length;
+    },
+    scootersAdopted() {
+      return this.adopted(this.scooters).length;
+    }
   },
   firebase: {
-    bicycles: db.ref("/rest/bicycles")
+    bicycles: db.ref("/rest/bicycles"),
+    scooters: db.ref("/rest/scooters")
   },
   mounted() {
     this.$nextTick(() => {
@@ -131,14 +186,14 @@ body,
   -moz-osx-font-smoothing: grayscale;
 }
 
-#stats {
+#controls {
   position: absolute;
   top: 0;
   right: 0;
   z-index: 10000;
 }
 
-#stats > div {
+.stats div {
   padding: 5px 10px;
   text-align: right;
 }

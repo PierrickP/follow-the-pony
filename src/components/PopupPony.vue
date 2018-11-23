@@ -1,6 +1,6 @@
 <template>
   <div>
-    id: {{ data.physicalId }}
+    id: {{ data.vehicleCode || data.physicalId }}
     <div v-if="data.adopted">
       {{ data.name }} - {{ data.gender }}
     </div>
